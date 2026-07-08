@@ -6,14 +6,8 @@ extern "C" {
 #endif
 
 #include "global_palette.h"
-#define tileset_0_palette_offset 0
-#include "tileset_0.h"
-#define background_palette_offset 0
-#include "background.h"
-#define gamestate_icons_palette_offset 0
-#include "gamestate_icons.h"
-#define logo_palette_offset 0
-#include "logo.h"
+#define cells_palette_offset 0
+#include "cells.h"
 
 #ifdef __cplusplus
 }

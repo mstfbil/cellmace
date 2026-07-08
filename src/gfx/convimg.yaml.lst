@@ -1,11 +1,5 @@
 global_palette.h
 global_palette.c
-tileset_0.h
-tileset_0.c
-background.h
-background.c
-gamestate_icons.h
-gamestate_icons.c
-logo.h
-logo.c
+cells.h
+cells.c
 gfx.h
