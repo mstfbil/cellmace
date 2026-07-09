@@ -5,17 +5,17 @@ palettes:
             color: { index: 1, r: 255, g: 255, b: 255 }
       images: automatic
 converts:
-    - name: cells
+    - name: cells_0
       palette: global_palette
       tilesets:
           tile-width: 16
           tile-height: 16
           images:
-              - cells.png
+              - cells_0.png
 outputs:
     - type: c
       include-file: gfx.h
       palettes:
           - global_palette
       converts:
-          - cells
+          - cells_0

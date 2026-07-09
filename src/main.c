@@ -1,5 +1,6 @@
 #include "common.h"
 #include "input.h"
+#include "state_init.h"
 #include "state_game.h"
 
 game_state_t *current_state = NULL;
@@ -19,19 +20,21 @@ int main(void)
 {
     gfx_Begin();
     gfx_SetPalette(global_palette, sizeof_global_palette, 0);
-    enterState(&STATE_GAME);
+    enterState(&STATE_INIT);
 
     while (current_state != NULL)
     {
         updateInput();
-        current_state->step();
+        if (current_state->step != NULL)
+            current_state->step();
 
-        if (current_state != NULL)
+        if (current_state != NULL && current_state->draw != NULL)
         {
             current_state->draw();
         }
     }
 
     gfx_End();
+    cleanupRotatedSprites();
     return 0;
 }

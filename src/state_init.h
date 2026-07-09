@@ -1,0 +1,7 @@
+#ifndef STATE_INIT_H
+#define STATE_INIT_H
+
+#include "common.h"
+extern const game_state_t STATE_INIT;
+
+#endif
