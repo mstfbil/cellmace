@@ -10,6 +10,7 @@ typedef struct
     void (*init)(void);
     void (*step)(void);
     void (*draw)(void);
+    void (*quit)(void);
 } game_state_t;
 
 extern game_state_t *current_state;

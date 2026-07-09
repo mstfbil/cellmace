@@ -6,6 +6,9 @@ game_state_t *current_state = NULL;
 
 void enterState(const game_state_t *new_state)
 {
+    if (current_state != NULL && current_state->quit != NULL)
+        current_state->quit();
+
     current_state = (game_state_t *)new_state;
 
     if (current_state != NULL && current_state->init != NULL)
