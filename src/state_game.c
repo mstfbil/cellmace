@@ -8,6 +8,8 @@
 #define CURSOR_DELAY (32768 / 8)
 #define TICK_DELAY (32768 / 4)
 
+#define GET_CELL_TYPE(cell) ((cell) & 0xF)
+#define GET_CELL_ROT(cell) (((cell) >> 4) & 3)
 #define SET_UPDATED(cell) ((cell) |= 0x80)
 #define CLEAR_UPDATED(cell) ((cell) &= 0x7F)
 #define IS_UPDATED(cell) ((cell) & 0x80)
@@ -43,16 +45,22 @@ static bool is_cell_picker_open, is_playing, is_reset;
 static const int8_t DIR_X[] = {1, 0, -1, 0};
 static const int8_t DIR_Y[] = {0, 1, 0, -1};
 
+// static uint8_t UPDATE_ROT_ORDER[] = {ROT_RIGHT, ROT_LEFT, ROT_UP, ROT_DOWN};
+// WILL I EVER BE ABLE TO USE THIS STUPID THING?!
+
 static void drawCellNoClip(uint8_t cell, int x, int y)
 {
-    const uint8_t cell_type = cell & 0xF;
-    const uint8_t cell_rot = (cell >> 4) & 3;
-    gfx_Sprite_NoClip(cell_sprites[cell_type][cell_rot], x, y);
+    gfx_Sprite_NoClip(cell_sprites[GET_CELL_TYPE(cell)][GET_CELL_ROT(cell)], x, y);
+}
+
+static bool isInBounds(int x, int y)
+{
+    return x >= 0 && x < GRID_WIDTH && y >= 0 && y < GRID_HEIGHT;
 }
 
 static bool pushCellRecursive(int x, int y, uint8_t dir)
 {
-    if (x < 0 || x >= GRID_WIDTH || y < 0 || y >= GRID_HEIGHT)
+    if (!isInBounds(x, y))
         return false;
 
     uint8_t cell = grid[y][x];
@@ -65,19 +73,13 @@ static bool pushCellRecursive(int x, int y, uint8_t dir)
     else if (type == CELL_SLIDE)
     {
         uint8_t rot = (cell >> 4) & 3;
-        if (rot == ROT_RIGHT || rot == ROT_LEFT)
-        {
-            if (dir == ROT_UP || dir == ROT_DOWN)
-                return false;
-        }
-        else if (dir == ROT_RIGHT || dir == ROT_LEFT)
+        if ((rot == ROT_LEFT || rot == ROT_RIGHT) != (dir == ROT_LEFT || dir == ROT_RIGHT))
             return false;
     }
 
     int next_x = x + DIR_X[dir];
     int next_y = y + DIR_Y[dir];
-
-    if (next_x < 0 || next_x >= GRID_WIDTH || next_y < 0 || next_y >= GRID_HEIGHT)
+    if (!isInBounds(next_x, next_y))
         return false;
 
     uint8_t target_cell = grid[next_y][next_x];
@@ -105,9 +107,76 @@ static bool pushCellRecursive(int x, int y, uint8_t dir)
     return false;
 }
 
-/* static uint8_t update_rot_order[] = {ROT_RIGHT, ROT_LEFT, ROT_UP, ROT_DOWN}; */
-// will use the above later!!
-static void tick()
+static void doGenerator(int x, int y, uint8_t rot)
+{
+    uint8_t cell = grid[y][x];
+
+    if (!IS_UPDATED(cell) && GET_CELL_TYPE(cell) == CELL_GENERATOR && GET_CELL_ROT(cell) == rot)
+    {
+        int back_x = x - DIR_X[rot];
+        int back_y = y - DIR_Y[rot];
+
+        if (isInBounds(back_x, back_y))
+        {
+            uint8_t source = grid[back_y][back_x];
+            if (GET_CELL_TYPE(source) != CELL_EMPTY)
+            {
+                int front_x = x + DIR_X[rot];
+                int front_y = y + DIR_Y[rot];
+
+                if (pushCellRecursive(front_x, front_y, rot))
+                {
+                    grid[front_y][front_x] = source & 0x7F;
+                }
+                SET_UPDATED(grid[y][x]);
+            }
+        }
+    }
+}
+
+static void doRotator(int x, int y, uint8_t type, int8_t rot_dir)
+{
+    uint8_t cell = grid[y][x];
+
+    if (!IS_UPDATED(cell) && GET_CELL_TYPE(cell) == type)
+    {
+        for (int i = 0; i < 4; i++)
+        {
+            int target_x = x + DIR_X[i];
+            int target_y = y + DIR_Y[i];
+
+            if (isInBounds(target_x, target_y))
+            {
+                uint8_t neighbor = grid[target_y][target_x];
+                uint8_t neighbor_type = GET_CELL_TYPE(neighbor);
+
+                if (neighbor_type != CELL_EMPTY)
+                {
+                    uint8_t neighbor_rot = GET_CELL_ROT(neighbor);
+                    uint8_t new_rot = (neighbor_rot + rot_dir) & 3;
+
+                    grid[target_y][target_x] = (neighbor & 0xCF) | (new_rot << 4);
+                }
+            }
+        }
+
+        SET_UPDATED(grid[y][x]);
+    }
+}
+
+static void doMover(int x, int y, uint8_t rot)
+{
+    uint8_t cell = grid[y][x];
+    if (!IS_UPDATED(cell) && GET_CELL_TYPE(cell) == CELL_MOVER && GET_CELL_ROT(cell) == rot)
+    {
+        if (pushCellRecursive(x, y, rot))
+        {
+            SET_UPDATED(grid[y + DIR_Y[rot]][x + DIR_X[rot]]);
+        }
+    }
+}
+
+static void tick(void)
 {
     // very crude and repetitive implementation, will improve later
 
@@ -115,236 +184,49 @@ static void tick()
     // right
     for (int x = GRID_WIDTH - 1; x >= 0; x--)
         for (int y = GRID_HEIGHT - 1; y >= 0; y--)
-        {
-            uint8_t cell = grid[y][x];
-
-            if (!IS_UPDATED(cell) && (cell & 0xF) == CELL_GENERATOR && ((cell >> 4) & 3) == ROT_RIGHT)
-            {
-                int back_x = x - 1;
-                int back_y = y;
-
-                if (back_x >= 0)
-                {
-                    uint8_t source = grid[back_y][back_x];
-                    if ((source & 0xF) != CELL_EMPTY)
-                    {
-                        int front_x = x + 1;
-                        int front_y = y;
-
-                        if (pushCellRecursive(front_x, front_y, ROT_RIGHT))
-                        {
-                            grid[front_y][front_x] = source & 0x7F;
-                        }
-                        SET_UPDATED(grid[y][x]);
-                    }
-                }
-            }
-        }
+            doGenerator(x, y, ROT_RIGHT);
     // left
     for (int x = 0; x < GRID_WIDTH; x++)
         for (int y = 0; y < GRID_HEIGHT; y++)
-        {
-            uint8_t cell = grid[y][x];
-
-            if (!IS_UPDATED(cell) && (cell & 0xF) == CELL_GENERATOR && ((cell >> 4) & 3) == ROT_LEFT)
-            {
-                int back_x = x + 1;
-                int back_y = y;
-
-                if (back_x < GRID_WIDTH)
-                {
-                    uint8_t source = grid[back_y][back_x];
-                    if ((source & 0xF) != CELL_EMPTY)
-                    {
-                        int front_x = x - 1;
-                        int front_y = y;
-
-                        if (pushCellRecursive(front_x, front_y, ROT_LEFT))
-                        {
-                            grid[front_y][front_x] = source & 0x7F;
-                        }
-                        SET_UPDATED(grid[y][x]);
-                    }
-                }
-            }
-        }
+            doGenerator(x, y, ROT_LEFT);
     // up
     for (int y = 0; y < GRID_HEIGHT; y++)
         for (int x = 0; x < GRID_WIDTH; x++)
-        {
-            uint8_t cell = grid[y][x];
-
-            if (!IS_UPDATED(cell) && (cell & 0xF) == CELL_GENERATOR && ((cell >> 4) & 3) == ROT_UP)
-            {
-                int back_x = x;
-                int back_y = y + 1;
-
-                if (back_y < GRID_HEIGHT)
-                {
-                    uint8_t source = grid[back_y][back_x];
-                    if ((source & 0xF) != CELL_EMPTY)
-                    {
-                        int front_x = x;
-                        int front_y = y - 1;
-
-                        if (pushCellRecursive(front_x, front_y, ROT_UP))
-                        {
-                            grid[front_y][front_x] = source & 0x7F;
-                        }
-                        SET_UPDATED(grid[y][x]);
-                    }
-                }
-            }
-        }
+            doGenerator(x, y, ROT_UP);
     // down
     for (int y = GRID_HEIGHT - 1; y >= 0; y--)
         for (int x = GRID_WIDTH - 1; x >= 0; x--)
-        {
-            uint8_t cell = grid[y][x];
-
-            if (!IS_UPDATED(cell) && (cell & 0xF) == CELL_GENERATOR && ((cell >> 4) & 3) == ROT_DOWN)
-            {
-                int back_x = x;
-                int back_y = y - 1;
-
-                if (back_y >= 0)
-                {
-                    uint8_t source = grid[back_y][back_x];
-                    if ((source & 0xF) != CELL_EMPTY)
-                    {
-                        int front_x = x;
-                        int front_y = y + 1;
-
-                        if (pushCellRecursive(front_x, front_y, ROT_DOWN))
-                        {
-                            grid[front_y][front_x] = source & 0x7F;
-                        }
-                        SET_UPDATED(grid[y][x]);
-                    }
-                }
-            }
-        }
+            doGenerator(x, y, ROT_DOWN);
 
     // ROTATORS
     // cw
     for (int y = 0; y < GRID_HEIGHT; y++)
         for (int x = 0; x < GRID_WIDTH; x++)
-        {
-            uint8_t cell = grid[y][x];
-
-            if (!IS_UPDATED(cell) && (cell & 0xF) == CELL_CW_ROTATOR)
-            {
-                for (int i = 0; i < 4; i++)
-                {
-                    int target_x = x + DIR_X[i];
-                    int target_y = y + DIR_Y[i];
-
-                    if (target_x >= 0 && target_x < GRID_WIDTH && target_y >= 0 && target_y < GRID_HEIGHT)
-                    {
-                        uint8_t neighbor = grid[target_y][target_x];
-
-                        if ((neighbor & 0xF) != CELL_EMPTY)
-                        {
-                            uint8_t type = neighbor & 0x8F;
-                            uint8_t rot = (neighbor >> 4) & 3;
-
-                            uint8_t new_rot = (rot + 1) & 3;
-
-                            grid[target_y][target_x] = type | (new_rot << 4);
-                        }
-                    }
-                }
-
-                SET_UPDATED(grid[y][x]);
-            }
-        }
+            doRotator(x, y, CELL_CW_ROTATOR, 1);
     // ccw
     for (int y = 0; y < GRID_HEIGHT; y++)
         for (int x = 0; x < GRID_WIDTH; x++)
-        {
-            uint8_t cell = grid[y][x];
-
-            if (!IS_UPDATED(cell) && (cell & 0xF) == CELL_CCW_ROTATOR)
-            {
-                for (int i = 0; i < 4; i++)
-                {
-                    int target_x = x + DIR_X[i];
-                    int target_y = y + DIR_Y[i];
-
-                    if (target_x >= 0 && target_x < GRID_WIDTH && target_y >= 0 && target_y < GRID_HEIGHT)
-                    {
-                        uint8_t neighbor = grid[target_y][target_x];
-
-                        if ((neighbor & 0xF) != CELL_EMPTY)
-                        {
-                            uint8_t type = neighbor & 0x8F;
-                            uint8_t rot = (neighbor >> 4) & 3;
-
-                            uint8_t new_rot = (rot - 1) & 3;
-
-                            grid[target_y][target_x] = type | (new_rot << 4);
-                        }
-                    }
-                }
-
-                SET_UPDATED(grid[y][x]);
-            }
-        }
+            doRotator(x, y, CELL_CCW_ROTATOR, -1);
 
     // MOVERS
     // right
     for (int x = GRID_WIDTH - 1; x >= 0; x--)
         for (int y = GRID_HEIGHT - 1; y >= 0; y--)
-        {
-            uint8_t cell = grid[y][x];
-            if (!IS_UPDATED(cell) && (cell & 0xF) == CELL_MOVER && ((cell >> 4) & 3) == ROT_RIGHT)
-            {
-                if (pushCellRecursive(x, y, ROT_RIGHT))
-                {
-                    SET_UPDATED(grid[y][x + 1]);
-                }
-            }
-        }
+            doMover(x, y, ROT_RIGHT);
     // left
     for (int x = 0; x < GRID_WIDTH; x++)
         for (int y = 0; y < GRID_HEIGHT; y++)
-        {
-            uint8_t cell = grid[y][x];
-            if (!IS_UPDATED(cell) && (cell & 0xF) == CELL_MOVER && ((cell >> 4) & 3) == ROT_LEFT)
-            {
-                if (pushCellRecursive(x, y, ROT_LEFT))
-                {
-                    SET_UPDATED(grid[y][x - 1]);
-                }
-            }
-        }
+            doMover(x, y, ROT_LEFT);
     // up
     for (int y = 0; y < GRID_HEIGHT; y++)
         for (int x = 0; x < GRID_WIDTH; x++)
-        {
-            uint8_t cell = grid[y][x];
-            if (!IS_UPDATED(cell) && (cell & 0xF) == CELL_MOVER && ((cell >> 4) & 3) == ROT_UP)
-            {
-                if (pushCellRecursive(x, y, ROT_UP))
-                {
-                    SET_UPDATED(grid[y - 1][x]);
-                }
-            }
-        }
+            doMover(x, y, ROT_UP);
     // down
     for (int y = GRID_HEIGHT - 1; y >= 0; y--)
         for (int x = GRID_WIDTH - 1; x >= 0; x--)
-        {
-            uint8_t cell = grid[y][x];
-            if (!IS_UPDATED(cell) && (cell & 0xF) == CELL_MOVER && ((cell >> 4) & 3) == ROT_DOWN)
-            {
-                if (pushCellRecursive(x, y, ROT_DOWN))
-                {
-                    SET_UPDATED(grid[y + 1][x]);
-                }
-            }
-        }
+            doMover(x, y, ROT_DOWN);
 
+    // CLEANUP OF UPDATED FLAG
     for (int y = 0; y < GRID_HEIGHT; y++)
     {
         for (int x = 0; x < GRID_WIDTH; x++)
