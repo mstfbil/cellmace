@@ -7,7 +7,7 @@ void init(void)
 {
     gfx_FillScreen(0);
     gfx_SetTextFGColor(1);
-    gfx_PrintStringXY("please wait...", 10, 10);
+    gfx_PrintStringXY("please wait... cellmace indev by voltie_dev", 10, 10);
     gfx_SwapDraw();
 
     for (uint8_t i = 0; i < cells_0_num_tiles; i++)

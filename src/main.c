@@ -34,7 +34,7 @@ int main(void)
         }
     }
 
-    gfx_End();
     cleanupRotatedSprites();
+    gfx_End();
     return 0;
 }

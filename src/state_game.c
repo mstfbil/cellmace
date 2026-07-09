@@ -6,6 +6,7 @@
 #define GRID_WIDTH 20
 #define GRID_HEIGHT 15
 #define CURSOR_DELAY (32768 / 8)
+#define TICK_DELAY (32768 / 4)
 
 #define SET_UPDATED(cell) ((cell) |= 0x80)
 #define CLEAR_UPDATED(cell) ((cell) &= 0x7F)
@@ -34,10 +35,11 @@ enum CellRot
 };
 
 static uint8_t grid[GRID_HEIGHT][GRID_WIDTH];
+static uint8_t grid_initial[GRID_HEIGHT][GRID_WIDTH];
 static uint8_t cursor_x, cursor_y;
 static uint8_t picked_cell_type, picked_cell_rot;
-static uint32_t last_cursor_time;
-static bool is_cell_picker_open;
+static uint32_t last_cursor_time, last_tick_time;
+static bool is_cell_picker_open, is_playing, is_reset;
 static const int8_t DIR_X[] = {1, 0, -1, 0};
 static const int8_t DIR_Y[] = {0, 1, 0, -1};
 
@@ -360,6 +362,8 @@ static void init(void)
     picked_cell_rot = 0;
 
     is_cell_picker_open = false;
+    is_playing = false;
+    is_reset = true;
 
     for (uint8_t y = 0; y < GRID_HEIGHT; y++)
         for (uint8_t x = 0; x < GRID_WIDTH; x++)
@@ -368,11 +372,21 @@ static void init(void)
     timer_Enable(1, TIMER_32K, TIMER_NOINT, TIMER_UP);
     uint32_t current_time = timer_Get(1);
     last_cursor_time = current_time - CURSOR_DELAY;
+    last_tick_time = current_time;
 }
 
 static void step(void)
 {
     uint32_t current_time = timer_Get(1);
+
+    if (is_playing)
+    {
+        if (current_time - last_tick_time >= TICK_DELAY)
+        {
+            tick();
+            last_tick_time = current_time;
+        }
+    }
 
     if (is_cell_picker_open)
     {
@@ -387,46 +401,72 @@ static void step(void)
     }
     else
     {
-        if (isKeyHeld(kb_Key2nd))
-            grid[cursor_y][cursor_x] = picked_cell_type | (picked_cell_rot << 4);
-        if (isKeyHeld(kb_KeyAlpha))
-            grid[cursor_y][cursor_x] = CELL_EMPTY;
-        if (isKeyPressed(kb_KeyYequ))
+        if (!is_playing)
         {
-            tick();
-        }
-        if (current_time - last_cursor_time >= CURSOR_DELAY)
-        {
-            bool moved = false;
-            if (isKeyHeld(kb_KeyLeft) && cursor_x > 0)
+            if (isKeyHeld(kb_Key2nd))
+                grid[cursor_y][cursor_x] = picked_cell_type | (picked_cell_rot << 4);
+            if (isKeyPressed(kb_KeyZoom))
             {
-                cursor_x--;
-                moved = true;
+                if (is_reset)
+                    for (int y = 0; y < GRID_HEIGHT; y++)
+                        for (int x = 0; x < GRID_WIDTH; x++)
+                            grid_initial[y][x] = grid[y][x];
+                is_reset = false;
+                tick();
             }
-            if (isKeyHeld(kb_KeyRight) && cursor_x < GRID_WIDTH - 1)
+            if (isKeyHeld(kb_KeyAlpha))
+                grid[cursor_y][cursor_x] = CELL_EMPTY;
+            if (current_time - last_cursor_time >= CURSOR_DELAY)
             {
-                cursor_x++;
-                moved = true;
+                bool moved = false;
+                if (isKeyHeld(kb_KeyLeft) && cursor_x > 0)
+                {
+                    cursor_x--;
+                    moved = true;
+                }
+                if (isKeyHeld(kb_KeyRight) && cursor_x < GRID_WIDTH - 1)
+                {
+                    cursor_x++;
+                    moved = true;
+                }
+                if (isKeyHeld(kb_KeyUp) && cursor_y > 0)
+                {
+                    cursor_y--;
+                    moved = true;
+                }
+                if (isKeyHeld(kb_KeyDown) && cursor_y < GRID_HEIGHT - 1)
+                {
+                    cursor_y++;
+                    moved = true;
+                }
+                if (moved)
+                    last_cursor_time = current_time;
             }
-            if (isKeyHeld(kb_KeyUp) && cursor_y > 0)
-            {
-                cursor_y--;
-                moved = true;
-            }
-            if (isKeyHeld(kb_KeyDown) && cursor_y < GRID_HEIGHT - 1)
-            {
-                cursor_y++;
-                moved = true;
-            }
-            if (moved)
-                last_cursor_time = current_time;
         }
     }
 
     if (isKeyPressed(kb_KeyClear))
         enterState(NULL);
-    if (isKeyPressed(kb_KeyMode))
+    if (isKeyPressed(kb_KeyMode) && !is_playing)
         is_cell_picker_open = !is_cell_picker_open;
+    if (isKeyPressed(kb_KeyYequ))
+    {
+        if (is_reset)
+            for (int y = 0; y < GRID_HEIGHT; y++)
+                for (int x = 0; x < GRID_WIDTH; x++)
+                    grid_initial[y][x] = grid[y][x];
+        is_reset = false;
+        is_playing = !is_playing;
+        last_tick_time = current_time;
+    }
+    if (isKeyPressed(kb_KeyWindow))
+    {
+        for (int y = 0; y < GRID_HEIGHT; y++)
+            for (int x = 0; x < GRID_WIDTH; x++)
+                grid[y][x] = grid_initial[y][x];
+        is_playing = false;
+        is_reset = true;
+    }
 }
 
 static void draw(void)
@@ -441,8 +481,11 @@ static void draw(void)
     }
 
     // draw cursor
-    gfx_SetColor(1);
-    gfx_Rectangle(cursor_x * 16, cursor_y * 16, 16, 16);
+    if (!is_playing)
+    {
+        gfx_SetColor(1);
+        gfx_Rectangle(cursor_x * 16, cursor_y * 16, 16, 16);
+    }
 
     // draw cell picker
     if (is_cell_picker_open)
