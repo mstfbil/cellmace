@@ -1,4 +1,5 @@
 #include "state_game.h"
+#include "state_menu.h"
 #include "common.h"
 #include "input.h"
 #include <sys/timers.h>
@@ -274,10 +275,18 @@ static void step(void)
 
     if (is_cell_picker_open)
     {
-        if (isKeyPressed(kb_KeyLeft) && picked_cell_type > 1)
+        if (isKeyPressed(kb_KeyLeft))
+        {
             picked_cell_type--;
-        if (isKeyPressed(kb_KeyRight) && picked_cell_type < cells_0_num_tiles - 1)
+            if (picked_cell_type < 1)
+                picked_cell_type = cells_0_num_tiles - 1;
+        }
+        if (isKeyPressed(kb_KeyRight))
+        {
             picked_cell_type++;
+            if (picked_cell_type > cells_0_num_tiles - 1)
+                picked_cell_type = 1;
+        }
         if (isKeyPressed(kb_KeyDown))
             picked_cell_rot = (picked_cell_rot + 1) & 3;
         if (isKeyPressed(kb_KeyUp))
@@ -303,24 +312,32 @@ static void step(void)
             if (current_time - last_cursor_time >= CURSOR_DELAY)
             {
                 bool moved = false;
-                if (isKeyHeld(kb_KeyLeft) && cursor_x > 0)
+                if (isKeyHeld(kb_KeyLeft))
                 {
                     cursor_x--;
+                    if (cursor_x < 0)
+                        cursor_x = GRID_WIDTH - 1;
                     moved = true;
                 }
-                if (isKeyHeld(kb_KeyRight) && cursor_x < GRID_WIDTH - 1)
+                if (isKeyHeld(kb_KeyRight))
                 {
                     cursor_x++;
+                    if (cursor_x > GRID_WIDTH - 1)
+                        cursor_x = 0;
                     moved = true;
                 }
-                if (isKeyHeld(kb_KeyUp) && cursor_y > 0)
+                if (isKeyHeld(kb_KeyUp))
                 {
                     cursor_y--;
+                    if (cursor_y < 0)
+                        cursor_y = GRID_HEIGHT - 1;
                     moved = true;
                 }
-                if (isKeyHeld(kb_KeyDown) && cursor_y < GRID_HEIGHT - 1)
+                if (isKeyHeld(kb_KeyDown))
                 {
                     cursor_y++;
+                    if (cursor_y > GRID_HEIGHT - 1)
+                        cursor_y = 0;
                     moved = true;
                 }
                 if (moved)
@@ -330,7 +347,7 @@ static void step(void)
     }
 
     if (isKeyPressed(kb_KeyClear))
-        enterState(NULL);
+        enterState(&STATE_MENU);
     if (isKeyPressed(kb_KeyMode) && !is_playing)
         is_cell_picker_open = !is_cell_picker_open;
     if (isKeyPressed(kb_KeyYequ))

@@ -1,15 +1,10 @@
 #include "state_init.h"
-#include "state_game.h"
+#include "state_menu.h"
 
 gfx_sprite_t *cell_sprites[cells_0_num_tiles][4];
 
-void init(void)
+static void init(void)
 {
-    gfx_FillScreen(0);
-    gfx_SetTextFGColor(1);
-    gfx_PrintStringXY("please wait... cellmace indev by voltie_dev", 10, 10);
-    gfx_SwapDraw();
-
     for (uint8_t i = 0; i < cells_0_num_tiles; i++)
     {
         gfx_sprite_t *base = cells_0_tiles[i];
@@ -26,7 +21,7 @@ void init(void)
         gfx_RotateSpriteCC(base, cell_sprites[i][3]);
     }
 
-    enterState(&STATE_GAME);
+    enterState(&STATE_MENU);
 }
 
 void cleanupRotatedSprites(void)

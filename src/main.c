@@ -1,7 +1,6 @@
 #include "common.h"
 #include "input.h"
 #include "state_init.h"
-#include "state_game.h"
 
 game_state_t *current_state = NULL;
 
