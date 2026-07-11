@@ -5,8 +5,8 @@
 
 #define GRID_WIDTH 20
 #define GRID_HEIGHT 15
-#define CURSOR_DELAY (32768 / 8)
-#define TICK_DELAY (32768 / 4)
+#define CURSOR_DELAY (32768 / 10)
+#define TICK_DELAY (32768 / 5)
 
 #define GET_CELL_TYPE(cell) ((cell) & 0xF)
 #define GET_CELL_ROT(cell) (((cell) >> 4) & 3)
@@ -38,7 +38,7 @@ enum CellRot
 
 static uint8_t grid[GRID_HEIGHT][GRID_WIDTH];
 static uint8_t grid_initial[GRID_HEIGHT][GRID_WIDTH];
-static uint8_t cursor_x, cursor_y;
+static int cursor_x, cursor_y;
 static uint8_t picked_cell_type, picked_cell_rot;
 static uint32_t last_cursor_time, last_tick_time;
 static bool is_cell_picker_open, is_playing, is_reset;
@@ -64,7 +64,7 @@ static bool pushCellRecursive(int x, int y, uint8_t dir)
         return false;
 
     uint8_t cell = grid[y][x];
-    uint8_t type = cell & 0xF;
+    uint8_t type = GET_CELL_TYPE(cell);
 
     if (type == CELL_EMPTY)
         return true;
@@ -72,9 +72,14 @@ static bool pushCellRecursive(int x, int y, uint8_t dir)
         return false;
     else if (type == CELL_SLIDE)
     {
-        uint8_t rot = (cell >> 4) & 3;
+        uint8_t rot = GET_CELL_ROT(cell);
         if ((rot == ROT_LEFT || rot == ROT_RIGHT) != (dir == ROT_LEFT || dir == ROT_RIGHT))
             return false;
+    }
+    else if (type == CELL_ENEMY)
+    {
+        grid[y][x] = CELL_EMPTY;
+        return false;
     }
 
     int next_x = x + DIR_X[dir];
@@ -83,7 +88,7 @@ static bool pushCellRecursive(int x, int y, uint8_t dir)
         return false;
 
     uint8_t target_cell = grid[next_y][next_x];
-    uint8_t target_type = target_cell & 0xF;
+    uint8_t target_type = GET_CELL_TYPE(target_cell);
 
     if (target_type == CELL_TRASH)
     {
@@ -167,6 +172,7 @@ static void doRotator(int x, int y, uint8_t type, int8_t rot_dir)
 static void doMover(int x, int y, uint8_t rot)
 {
     uint8_t cell = grid[y][x];
+
     if (!IS_UPDATED(cell) && GET_CELL_TYPE(cell) == CELL_MOVER && GET_CELL_ROT(cell) == rot)
     {
         if (pushCellRecursive(x, y, rot))
@@ -228,12 +234,8 @@ static void tick(void)
 
     // CLEANUP OF UPDATED FLAG
     for (int y = 0; y < GRID_HEIGHT; y++)
-    {
         for (int x = 0; x < GRID_WIDTH; x++)
-        {
             CLEAR_UPDATED(grid[y][x]);
-        }
-    }
 }
 
 static void init(void)
@@ -247,9 +249,9 @@ static void init(void)
     is_playing = false;
     is_reset = true;
 
-    for (uint8_t y = 0; y < GRID_HEIGHT; y++)
-        for (uint8_t x = 0; x < GRID_WIDTH; x++)
-            grid[y][x] = 0;
+    for (int y = 0; y < GRID_HEIGHT; y++)
+        for (int x = 0; x < GRID_WIDTH; x++)
+            grid[y][x] = CELL_EMPTY;
 
     timer_Enable(1, TIMER_32K, TIMER_NOINT, TIMER_UP);
     uint32_t current_time = timer_Get(1);
@@ -341,7 +343,7 @@ static void step(void)
         is_playing = !is_playing;
         last_tick_time = current_time;
     }
-    if (isKeyPressed(kb_KeyWindow))
+    if (isKeyPressed(kb_KeyWindow) && !is_reset)
     {
         for (int y = 0; y < GRID_HEIGHT; y++)
             for (int x = 0; x < GRID_WIDTH; x++)
@@ -354,9 +356,9 @@ static void step(void)
 static void draw(void)
 {
     // draw grid
-    for (uint8_t y = 0; y < GRID_HEIGHT; y++)
+    for (int y = 0; y < GRID_HEIGHT; y++)
     {
-        for (uint8_t x = 0; x < GRID_WIDTH; x++)
+        for (int x = 0; x < GRID_WIDTH; x++)
         {
             drawCellNoClip(grid[y][x], x * 16, y * 16);
         }
@@ -376,7 +378,7 @@ static void draw(void)
         gfx_FillRectangle_NoClip(0, 208, GFX_LCD_WIDTH, 32);
         for (uint8_t i = 0; i < cells_0_num_tiles - 1; i++)
         {
-            // lower 4 bytes are type, higher 4 are rotation
+            // lower 4 bits are type, next 2 are rotation, next is updated flag, msb is unused
             // x and y values are so to center the picker lol
             drawCellNoClip(((i + 1) | (picked_cell_rot << 4)), 36 * i + 8, 216);
         }
