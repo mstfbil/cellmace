@@ -21,7 +21,7 @@ static void init(void)
         gfx_RotateSpriteCC(base, cell_sprites[i][3]);
     }
 
-    enterState(&STATE_MENU);
+    states_EnterState(&STATE_MENU);
 }
 
 void cleanupRotatedSprites(void)

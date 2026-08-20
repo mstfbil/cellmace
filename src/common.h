@@ -5,17 +5,6 @@
 #include <graphx.h>
 #include "gfx/gfx.h"
 
-typedef struct
-{
-    void (*init)(void);
-    void (*step)(void);
-    void (*draw)(void);
-    void (*quit)(void);
-} game_state_t;
-
-extern game_state_t *current_state;
-void enterState(const game_state_t *new_state);
-
 extern gfx_sprite_t *cell_sprites[cells_0_num_tiles][4];
 void cleanupRotatedSprites(void);
 

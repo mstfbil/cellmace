@@ -1,5 +1,5 @@
-#include "common.h"
 #include "input.h"
+#include "state_menu.h"
 #include "state_game.h"
 
 static int selected_menu_item;
@@ -12,7 +12,7 @@ static void init(void)
 static void step(void)
 {
     if (isKeyPressed(kb_KeyClear))
-        enterState(NULL);
+        states_EnterState(NULL);
     else if (isKeyPressed(kb_KeyDown) && selected_menu_item < 1)
         selected_menu_item++;
     else if (isKeyPressed(kb_KeyUp) && selected_menu_item > 0)
@@ -22,10 +22,10 @@ static void step(void)
         switch (selected_menu_item)
         {
         case 0:
-            enterState(&STATE_GAME);
+            states_EnterState(&STATE_GAME);
             break;
         case 1:
-            enterState(NULL);
+            states_EnterState(NULL);
             break;
         }
     }
@@ -33,6 +33,7 @@ static void step(void)
 
 static void draw(void)
 {
+    // very dirty menu, will improve later
     gfx_FillScreen(1);
 
     gfx_SetTextScale(3, 3);

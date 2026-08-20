@@ -1,7 +1,6 @@
+#include "input.h"
 #include "state_game.h"
 #include "state_menu.h"
-#include "common.h"
-#include "input.h"
 #include <sys/timers.h>
 
 #define GRID_WIDTH 20
@@ -347,7 +346,7 @@ static void step(void)
     }
 
     if (isKeyPressed(kb_KeyClear))
-        enterState(&STATE_MENU);
+        states_EnterState(&STATE_MENU);
     if (isKeyPressed(kb_KeyMode) && !is_playing)
         is_cell_picker_open = !is_cell_picker_open;
     if (isKeyPressed(kb_KeyYequ))

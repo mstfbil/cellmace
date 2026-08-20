@@ -2,6 +2,7 @@
 #define STATE_GAME_H
 
 #include "common.h"
+#include "states.h"
 extern const game_state_t STATE_GAME;
 
 #endif
