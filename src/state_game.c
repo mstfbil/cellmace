@@ -45,17 +45,14 @@ static bool is_cell_picker_open, is_playing, is_reset;
 static const int8_t DIR_X[] = {1, 0, -1, 0};
 static const int8_t DIR_Y[] = {0, 1, 0, -1};
 
-// static uint8_t UPDATE_ROT_ORDER[] = {ROT_RIGHT, ROT_LEFT, ROT_UP, ROT_DOWN};
-// WILL I EVER BE ABLE TO USE THIS STUPID THING?!
-
 static void drawCellNoClip(uint8_t cell, int x, int y)
 {
     gfx_Sprite_NoClip(cell_sprites[GET_CELL_TYPE(cell)][GET_CELL_ROT(cell)], x, y);
 }
 
-static bool isInBounds(int x, int y)
+static inline bool isInBounds(uint8_t x, uint8_t y)
 {
-    return x >= 0 && x < GRID_WIDTH && y >= 0 && y < GRID_HEIGHT;
+    return (x < GRID_WIDTH) && (y < GRID_HEIGHT);
 }
 
 static bool pushCellRecursive(int x, int y, uint8_t dir)
@@ -182,10 +179,45 @@ static void doMover(int x, int y, uint8_t rot)
     }
 }
 
+// i really wanted to make this work but it's too slow at runtime so whatever
+/* static void sweepGrid(void (*func)(int, int, uint8_t))
+{
+    typedef struct
+    {
+        int start_x, end_x, step_x;
+        int start_y, end_y, step_y;
+        bool is_y_outer_loop;
+        uint8_t rot;
+    } SweepConfig_t;
+
+    static const SweepConfig_t sweep_config[4] =
+        {
+            {GRID_WIDTH - 1, -1, -1, GRID_HEIGHT - 1, -1, -1, 0, ROT_RIGHT},
+            {0, GRID_WIDTH, 1, 0, GRID_HEIGHT, 1, 0, ROT_LEFT},
+            {0, GRID_WIDTH, 1, 0, GRID_HEIGHT, 1, 1, ROT_UP},
+            {GRID_WIDTH - 1, -1, -1, GRID_HEIGHT - 1, -1, -1, 1, ROT_DOWN}};
+
+    for (int p = 0; p < 4; ++p)
+    {
+        const SweepConfig_t *config = &sweep_config[p];
+
+        if (config->is_y_outer_loop)
+        {
+            for (int y = config->start_y; y != config->end_y; y += config->step_y)
+                for (int x = config->start_x; x != config->end_x; x += config->step_x)
+                    func(x, y, config->rot);
+        }
+        else
+        {
+            for (int x = config->start_x; x != config->end_x; x += config->step_x)
+                for (int y = config->start_y; y != config->end_y; y += config->step_y)
+                    func(x, y, config->rot);
+        }
+    }
+} */
+
 static void tick(void)
 {
-    // very crude and repetitive implementation, will improve later
-
     // GENERATORS
     // right
     for (int x = GRID_WIDTH - 1; x >= 0; x--)
@@ -249,9 +281,7 @@ static void init(void)
     is_playing = false;
     is_reset = true;
 
-    for (int y = 0; y < GRID_HEIGHT; y++)
-        for (int x = 0; x < GRID_WIDTH; x++)
-            grid[y][x] = CELL_EMPTY;
+    memset(grid, CELL_EMPTY, sizeof(grid));
 
     timer_Enable(1, TIMER_32K, TIMER_NOINT, TIMER_UP);
     uint32_t current_time = timer_Get(1);
@@ -352,18 +382,14 @@ static void step(void)
     if (isKeyPressed(kb_KeyYequ))
     {
         if (is_reset)
-            for (int y = 0; y < GRID_HEIGHT; y++)
-                for (int x = 0; x < GRID_WIDTH; x++)
-                    grid_initial[y][x] = grid[y][x];
+            memcpy(grid_initial, grid, sizeof(grid));
         is_reset = false;
         is_playing = !is_playing;
         last_tick_time = current_time;
     }
     if (isKeyPressed(kb_KeyWindow) && !is_reset)
     {
-        for (int y = 0; y < GRID_HEIGHT; y++)
-            for (int x = 0; x < GRID_WIDTH; x++)
-                grid[y][x] = grid_initial[y][x];
+        memcpy(grid, grid_initial, sizeof(grid));
         is_playing = false;
         is_reset = true;
     }

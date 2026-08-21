@@ -2,6 +2,7 @@
 #define COMMON_H
 
 #include <stdbool.h>
+#include <string.h>
 #include <graphx.h>
 #include "gfx/gfx.h"
 
