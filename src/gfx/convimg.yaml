@@ -2,20 +2,31 @@ palettes:
     - name: global_palette
       fixed-entries:
           - color: { index: 0, r: 0, g: 0, b: 0 }
-            color: { index: 1, r: 255, g: 255, b: 255 }
+          - color: { index: 1, r: 255, g: 255, b: 255 }
       images: automatic
 converts:
-    - name: cells_0
+    - name: cells
       palette: global_palette
+      compress: zx0
       tilesets:
           tile-width: 16
           tile-height: 16
           images:
-              - cells_0.png
+              - cells.png
+    - name: cell_icons
+      palette: global_palette
+      transparent-index: 0
+      compress: zx0
+      tilesets:
+          tile-width: 16
+          tile-height: 16
+          images:
+              - cell_icons.png
 outputs:
     - type: c
       include-file: gfx.h
       palettes:
           - global_palette
       converts:
-          - cells_0
+          - cells
+          - cell_icons

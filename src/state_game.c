@@ -308,12 +308,12 @@ static void step(void)
         {
             picked_cell_type--;
             if (picked_cell_type < 1)
-                picked_cell_type = cells_0_num_tiles - 1;
+                picked_cell_type = cells_num_tiles - 1;
         }
         if (isKeyPressed(kb_KeyRight))
         {
             picked_cell_type++;
-            if (picked_cell_type > cells_0_num_tiles - 1)
+            if (picked_cell_type > cells_num_tiles - 1)
                 picked_cell_type = 1;
         }
         if (isKeyPressed(kb_KeyDown))
@@ -411,6 +411,10 @@ static void draw(void)
     {
         gfx_SetColor(1);
         gfx_Rectangle(cursor_x * 16, cursor_y * 16, 16, 16);
+        if (picked_cell_type > 1)
+        {
+            gfx_TransparentSprite(cell_icon_sprites[picked_cell_type - 2][picked_cell_rot], cursor_x * 16, cursor_y * 16);
+        }
     }
 
     // draw cell picker
@@ -418,7 +422,7 @@ static void draw(void)
     {
         gfx_SetColor(1);
         gfx_FillRectangle_NoClip(0, 208, GFX_LCD_WIDTH, 32);
-        for (uint8_t i = 0; i < cells_0_num_tiles - 1; i++)
+        for (uint8_t i = 0; i < cells_num_tiles - 1; i++)
         {
             // lower 4 bits are type, next 2 are rotation, next is updated flag, msb is unused
             // x and y values are so to center the picker lol

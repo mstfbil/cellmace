@@ -16,7 +16,7 @@ int main(void)
         states_Step();
     }
 
-    cleanupRotatedSprites();
+    cleanupSprites();
     gfx_End();
     return 0;
 }
