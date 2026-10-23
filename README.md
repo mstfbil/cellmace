@@ -2,7 +2,7 @@
 
 this is a [cell machine](https://samhogan.itch.io/cell-machine) mod/clone for the ti-84+ ce calculator.
 
-![screenshot](screenshot.png)
+![main menu](screenshots/screenshot1.png) ![nuke](screenshots/screenshot2.png) ![contraption](screenshots/screenshot3.png) ![nuke running](screenshots/screenshot4.png)
 
 ## how to play
 
@@ -10,19 +10,23 @@ i assume you are somewhat familiar with the concept of cell machine already. if 
 
 ### controls
 
+#### simulation control
+
+- **y=** start/pause
+- **window** reset the grid
+- **zoom** step
+
+#### navigation & editing
+
 - **arrow keys** navigate through the grid
-- **y=** start/pause the simulation
-- **window** reset the simulation
-- **zoom** step through the simulation
 - **2nd** place selected cell
 - **alpha** erase cell
-- **mode** open cell selector
-  - **left and right** change selected cell
-  - **up and down** rotate cells
+- **numpad** change cell type
+- **+** and **-** rotate cell
 
 ## development
 
 - [x] accurate simulation
-- [ ] saving/loading
+- [x] saving/loading
 - [ ] animations
-- [ ] better ui
+- [x] better ui
