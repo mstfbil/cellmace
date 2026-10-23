@@ -1,7 +1,6 @@
 #include "input.h"
 #include "state_game.h"
 #include "state_menu.h"
-#include <sys/timers.h>
 
 #define GRID_WIDTH 20
 #define GRID_HEIGHT 15
@@ -44,6 +43,7 @@ static const int8_t DIR_Y[] = {0, 1, 0, -1};
 
 static uint8_t grid[GRID_HEIGHT][GRID_WIDTH];
 static uint8_t grid_initial[GRID_HEIGHT][GRID_WIDTH];
+static char save_var_name[9];
 
 static bool is_playing, is_reset;
 static int cursor_x, cursor_y;
@@ -54,6 +54,41 @@ static int playing_bar_x = 0;
 static bool playing_bar_to_right = true;
 #define PLAYING_BAR_WIDTH (GFX_LCD_WIDTH / 10)
 #define PLAYING_BAR_SPEED 4
+
+static void load_save_from_appvar()
+{
+    uint8_t slot = ti_Open(save_var_name, "r");
+    if (slot == 0)
+        return;
+
+    ti_Read(&grid, sizeof(grid), 1, slot);
+    ti_Close(slot);
+}
+
+static void save_grid_to_appvar()
+{
+    bool is_empty = true;
+    for (int y = 0; y < GRID_HEIGHT; y++)
+        for (int x = 0; x < GRID_WIDTH; x++)
+            if (grid[y][x] != CELL_EMPTY)
+            {
+                is_empty = false;
+                break;
+            }
+    if (is_empty)
+    {
+        ti_Delete(save_var_name);
+    }
+    else
+    {
+        uint8_t slot = ti_Open(save_var_name, "w");
+        if (slot == 0)
+            return;
+
+        ti_Write(&grid, sizeof(grid), 1, slot);
+        ti_Close(slot);
+    }
+}
 
 static void drawCellNoClip(uint8_t cell, int x, int y)
 {
@@ -296,6 +331,9 @@ static void init(void)
     uint32_t current_time = timer_Get(1);
     last_cursor_time = current_time - CURSOR_DELAY;
     last_tick_time = current_time;
+
+    sprintf(save_var_name, SAVE_VAR_NAME_FORMAT, save_slot);
+    load_save_from_appvar();
 }
 
 static void step(void)
@@ -343,7 +381,7 @@ static void step(void)
             is_reset = false;
             tick();
         }
-        if (isKeyPressed(kb_KeyClear))
+        if (isKeyPressed(kb_KeyClear) && is_reset)
             states_EnterState(&STATE_MENU);
         if (current_time - last_cursor_time >= CURSOR_DELAY)
         {
@@ -463,6 +501,7 @@ static void draw(void)
 
 static void quit(void)
 {
+    save_grid_to_appvar();
     timer_Disable(1);
 }
 

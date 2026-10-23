@@ -4,8 +4,11 @@
 gfx_sprite_t *cell_sprites[cells_num_tiles][4];
 gfx_sprite_t *cell_icon_sprites[cell_icons_num_tiles][4];
 
+int save_slot;
+
 static void init(void)
 {
+    save_slot = 1;
     gfx_SetTransparentColor(0);
 
     for (int i = 0; i < cells_num_tiles; i++)
