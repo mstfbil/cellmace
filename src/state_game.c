@@ -5,6 +5,7 @@
 
 #define GRID_WIDTH 20
 #define GRID_HEIGHT 15
+
 #define CURSOR_DELAY (32768 / 10)
 #define TICK_DELAY (32768 / 5)
 
@@ -48,6 +49,11 @@ static bool is_playing, is_reset;
 static int cursor_x, cursor_y;
 static uint8_t picked_cell_type, picked_cell_rot;
 static uint32_t last_cursor_time, last_tick_time;
+
+static int playing_bar_x = 0;
+static bool playing_bar_to_right = true;
+#define PLAYING_BAR_WIDTH (GFX_LCD_WIDTH / 10)
+#define PLAYING_BAR_SPEED 4
 
 static void drawCellNoClip(uint8_t cell, int x, int y)
 {
@@ -303,6 +309,26 @@ static void step(void)
             tick();
             last_tick_time = current_time;
         }
+
+        // update indicator
+        if (playing_bar_to_right)
+        {
+            playing_bar_x += PLAYING_BAR_SPEED;
+            if (playing_bar_x + PLAYING_BAR_WIDTH >= GFX_LCD_WIDTH)
+            {
+                playing_bar_x = GFX_LCD_WIDTH - PLAYING_BAR_WIDTH;
+                playing_bar_to_right = false;
+            }
+        }
+        else
+        {
+            playing_bar_x -= PLAYING_BAR_SPEED;
+            if (playing_bar_x <= 0)
+            {
+                playing_bar_x = 0;
+                playing_bar_to_right = true;
+            }
+        }
     }
     else
     {
@@ -310,7 +336,6 @@ static void step(void)
             grid[cursor_y][cursor_x] = MAKE_CELL(picked_cell_type, picked_cell_rot);
         if (isKeyHeld(kb_KeyAlpha))
             grid[cursor_y][cursor_x] = CELL_EMPTY;
-
         if (isKeyPressed(kb_KeyZoom))
         {
             if (is_reset)
@@ -381,7 +406,10 @@ static void step(void)
     if (isKeyPressed(kb_KeyYequ))
     {
         if (is_reset)
+        {
             memcpy(grid_initial, grid, sizeof(grid));
+            playing_bar_x = 0;
+        }
         is_reset = false;
         is_playing = !is_playing;
         last_tick_time = current_time;
@@ -413,6 +441,20 @@ static void draw(void)
         if (picked_cell_type > 1)
         {
             gfx_TransparentSprite(cell_icon_sprites[picked_cell_type - 2][picked_cell_rot], cursor_x * 16, cursor_y * 16);
+        }
+    }
+
+    // draw busy indicators
+    if (!is_reset)
+    {
+        gfx_SetColor(1);
+        if (is_playing) // actively playing
+        {
+            gfx_HorizLine(playing_bar_x, GFX_LCD_HEIGHT - 1, PLAYING_BAR_WIDTH);
+        }
+        else // paused, step mode
+        {
+            gfx_Rectangle(0, 0, GFX_LCD_WIDTH, GFX_LCD_HEIGHT);
         }
     }
 
