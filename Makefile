@@ -6,6 +6,7 @@ ARCHIVED = NO
 
 COMPRESSED = YES
 COMPRESSED_MODE = zx0
+HAS_PRINTF = NO
 
 CFLAGS = -Wall -Wextra -Oz
 CXXFLAGS = -Wall -Wextra -Oz

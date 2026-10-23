@@ -7,7 +7,6 @@
 #include <fileioc.h>
 #include <compression.h>
 #include <sys/timers.h>
-#include <ti/sprintf.h>
 #include "gfx/gfx.h"
 
 #define TILE_WIDTH 16
