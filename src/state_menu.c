@@ -96,6 +96,8 @@ static void draw(void)
         gfx_PrintStringXY("<clear> exit", 10, 150);
     }
 
+    gfx_PrintStringXY("cellmaCE - made with <3 by voltie_dev - 2026", 10, 230);
+
     // draw grid preview
     gfx_Rectangle(PREVIEW_X - 2, PREVIEW_Y - 2, PREVIEW_CELL_SIZE * GRID_WIDTH + 4, PREVIEW_CELL_SIZE * GRID_HEIGHT + 4);
     for (int y = 0; y < GRID_HEIGHT; y++)
