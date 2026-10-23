@@ -2,18 +2,8 @@
 #include "state_game.h"
 #include "state_menu.h"
 
-#define GRID_WIDTH 20
-#define GRID_HEIGHT 15
-
 #define CURSOR_DELAY (32768 / 10)
 #define TICK_DELAY (32768 / 5)
-
-#define GET_CELL_TYPE(cell) ((cell) & 0xF)
-#define GET_CELL_UPDATED(cell) ((cell) & 0x80)
-#define GET_CELL_ROT(cell) (((cell) >> 4) & 3)
-#define SET_UPDATED(cell) ((cell) |= 0x80)
-#define CLEAR_UPDATED(cell) ((cell) &= 0x7F)
-#define MAKE_CELL(type, rot) (type | (rot << 4))
 
 enum CellType
 {
@@ -41,9 +31,9 @@ enum CellRot
 static const int8_t DIR_X[] = {1, 0, -1, 0};
 static const int8_t DIR_Y[] = {0, 1, 0, -1};
 
-static uint8_t grid[GRID_HEIGHT][GRID_WIDTH];
+uint8_t grid[GRID_HEIGHT][GRID_WIDTH];
 static uint8_t grid_initial[GRID_HEIGHT][GRID_WIDTH];
-static char save_var_name[9];
+char save_var_name[9];
 
 static bool is_playing, is_reset;
 static int cursor_x, cursor_y;
@@ -55,17 +45,18 @@ static bool playing_bar_to_right = true;
 #define PLAYING_BAR_WIDTH (GFX_LCD_WIDTH / 10)
 #define PLAYING_BAR_SPEED 4
 
-static void load_save_from_appvar()
+void load_save_from_appvar(void)
 {
+    sprintf(save_var_name, SAVE_VAR_NAME_FORMAT, save_slot);
     uint8_t slot = ti_Open(save_var_name, "r");
     if (slot == 0)
-        return;
+        memset(grid, CELL_EMPTY, sizeof(grid));
 
     ti_Read(&grid, sizeof(grid), 1, slot);
     ti_Close(slot);
 }
 
-static void save_grid_to_appvar()
+static void save_grid_to_appvar(void)
 {
     bool is_empty = true;
     for (int y = 0; y < GRID_HEIGHT; y++)
@@ -76,9 +67,7 @@ static void save_grid_to_appvar()
                 break;
             }
     if (is_empty)
-    {
         ti_Delete(save_var_name);
-    }
     else
     {
         uint8_t slot = ti_Open(save_var_name, "w");
@@ -325,15 +314,10 @@ static void init(void)
     is_playing = false;
     is_reset = true;
 
-    memset(grid, CELL_EMPTY, sizeof(grid));
-
     timer_Enable(1, TIMER_32K, TIMER_NOINT, TIMER_UP);
     uint32_t current_time = timer_Get(1);
     last_cursor_time = current_time - CURSOR_DELAY;
     last_tick_time = current_time;
-
-    sprintf(save_var_name, SAVE_VAR_NAME_FORMAT, save_slot);
-    load_save_from_appvar();
 }
 
 static void step(void)

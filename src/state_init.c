@@ -1,5 +1,6 @@
 #include "state_init.h"
 #include "state_menu.h"
+#include "state_game.h"
 
 gfx_sprite_t *cell_sprites[cells_num_tiles][4];
 gfx_sprite_t *cell_icon_sprites[cell_icons_num_tiles][4];
@@ -9,6 +10,8 @@ int save_slot;
 static void init(void)
 {
     save_slot = 1;
+    load_save_from_appvar();
+
     gfx_SetTransparentColor(0);
 
     for (int i = 0; i < cells_num_tiles; i++)
