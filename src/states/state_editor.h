@@ -1,9 +1,9 @@
-#ifndef STATE_GAME_H
-#define STATE_GAME_H
+#ifndef STATE_EDITOR_H
+#define STATE_EDITOR_H
 
 #include "common.h"
-#include "states.h"
-extern const game_state_t STATE_GAME;
+#include "utils/states.h"
+extern const game_state_t STATE_EDITOR;
 
 #define GRID_WIDTH 20
 #define GRID_HEIGHT 15

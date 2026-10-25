@@ -1,5 +1,5 @@
-#include "input.h"
-#include "state_game.h"
+#include "utils/input.h"
+#include "state_editor.h"
 #include "state_menu.h"
 
 #define CURSOR_DELAY (32768 / 10)
@@ -81,7 +81,7 @@ static void save_grid_to_appvar(void)
 
 static void drawCellNoClip(uint8_t cell, int x, int y)
 {
-    gfx_Sprite_NoClip(cell_sprites[GET_CELL_TYPE(cell)][GET_CELL_ROT(cell)], x, y);
+    gfx_Sprite_NoClip(cells_sprites[GET_CELL_TYPE(cell)][GET_CELL_ROT(cell)], x, y);
 }
 
 static inline bool isInBounds(uint8_t x, uint8_t y)
@@ -462,7 +462,7 @@ static void draw(void)
         gfx_Rectangle(cursor_x * 16, cursor_y * 16, 16, 16);
         if (picked_cell_type > 1)
         {
-            gfx_TransparentSprite(cell_icon_sprites[picked_cell_type - 2][picked_cell_rot], cursor_x * 16, cursor_y * 16);
+            gfx_TransparentSprite(cell_icons_sprites[picked_cell_type - 2][picked_cell_rot], cursor_x * 16, cursor_y * 16);
         }
     }
 
@@ -489,4 +489,4 @@ static void quit(void)
     timer_Disable(1);
 }
 
-const game_state_t STATE_GAME = {init, step, draw, quit};
+const game_state_t STATE_EDITOR = {init, step, draw, quit};

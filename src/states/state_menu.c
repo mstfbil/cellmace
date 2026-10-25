@@ -1,6 +1,6 @@
-#include "input.h"
+#include "utils/input.h"
 #include "state_menu.h"
-#include "state_game.h"
+#include "state_editor.h"
 
 #define PREVIEW_X 200
 #define PREVIEW_Y 82
@@ -45,7 +45,7 @@ static void step(void)
         if (isKeyPressed(kb_KeyClear))
             states_EnterState(NULL);
         if (isKeyPressed(kb_KeyEnter))
-            states_EnterState(&STATE_GAME);
+            states_EnterState(&STATE_EDITOR);
         if (isKeyPressed(kb_KeyDel))
         {
             at_delete_confirmation = true;
@@ -74,7 +74,7 @@ static void draw(void)
     gfx_FillScreen(1);
 
     gfx_SetColor(0);
-    gfx_Sprite(cell_sprites[4][0], 10, 80);
+    gfx_Sprite(cells_sprites[4][0], 10, 80);
     gfx_SetTextScale(2, 2);
     gfx_PrintStringXY("cellmaCE", 30, 80);
     gfx_SetTextScale(1, 1);
