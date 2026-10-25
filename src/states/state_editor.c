@@ -1,6 +1,7 @@
 #include "state_editor.h"
 #include "state_menu.h"
 #include "engine/grid.h"
+#include "engine/sim.h"
 #include "engine/save.h"
 #include "utils/input.h"
 #include "gfx/sprites.h"
@@ -10,12 +11,6 @@
 
 #define CURSOR_DELAY (32768 / 10)
 #define TICK_DELAY (32768 / 5)
-
-static const int8_t DIR_X[] = {1, 0, -1, 0};
-static const int8_t DIR_Y[] = {0, 1, 0, -1};
-
-static uint8_t grid_initial[GRID_HEIGHT][GRID_WIDTH];
-char save_var_name[9];
 
 static bool is_playing, is_reset;
 static int cursor_x, cursor_y;
@@ -30,226 +25,6 @@ static bool playing_bar_to_right = true;
 static void drawCellNoClip(uint8_t cell, int x, int y)
 {
     gfx_Sprite_NoClip(cells_sprites[GET_CELL_TYPE(cell)][GET_CELL_ROT(cell)], x, y);
-}
-
-static inline bool isInBounds(uint8_t x, uint8_t y)
-{
-    return (x < GRID_WIDTH) && (y < GRID_HEIGHT);
-}
-
-static bool pushCellRecursive(int x, int y, uint8_t dir)
-{
-    if (!isInBounds(x, y))
-        return false;
-
-    uint8_t cell = grid[y][x];
-    uint8_t type = GET_CELL_TYPE(cell);
-
-    if (type == CELL_EMPTY)
-        return true;
-    else if (type == CELL_WALL)
-        return false;
-    else if (type == CELL_SLIDE)
-    {
-        uint8_t rot = GET_CELL_ROT(cell);
-        if ((rot == ROT_LEFT || rot == ROT_RIGHT) != (dir == ROT_LEFT || dir == ROT_RIGHT))
-            return false;
-    }
-    else if (type == CELL_ENEMY)
-    {
-        grid[y][x] = CELL_EMPTY;
-        return false;
-    }
-
-    int next_x = x + DIR_X[dir];
-    int next_y = y + DIR_Y[dir];
-    if (!isInBounds(next_x, next_y))
-        return false;
-
-    uint8_t target_cell = grid[next_y][next_x];
-    uint8_t target_type = GET_CELL_TYPE(target_cell);
-
-    if (target_type == CELL_TRASH)
-    {
-        grid[y][x] = CELL_EMPTY;
-        return true;
-    }
-    if (target_type == CELL_ENEMY)
-    {
-        grid[next_y][next_x] = CELL_EMPTY;
-        grid[y][x] = CELL_EMPTY;
-        return true;
-    }
-
-    if (pushCellRecursive(next_x, next_y, dir))
-    {
-        grid[next_y][next_x] = cell;
-        grid[y][x] = CELL_EMPTY;
-        return true;
-    }
-
-    return false;
-}
-
-static void doGenerator(int x, int y, uint8_t rot)
-{
-    uint8_t cell = grid[y][x];
-
-    if (!GET_CELL_UPDATED(cell) && GET_CELL_TYPE(cell) == CELL_GENERATOR && GET_CELL_ROT(cell) == rot)
-    {
-        int back_x = x - DIR_X[rot];
-        int back_y = y - DIR_Y[rot];
-
-        if (isInBounds(back_x, back_y))
-        {
-            uint8_t source = grid[back_y][back_x];
-            if (GET_CELL_TYPE(source) != CELL_EMPTY)
-            {
-                int front_x = x + DIR_X[rot];
-                int front_y = y + DIR_Y[rot];
-
-                if (pushCellRecursive(front_x, front_y, rot))
-                {
-                    grid[front_y][front_x] = source & 0x7F;
-                }
-                SET_UPDATED(grid[y][x]);
-            }
-        }
-    }
-}
-
-static void doRotator(int x, int y, uint8_t type, int8_t rot_dir)
-{
-    uint8_t cell = grid[y][x];
-
-    if (!GET_CELL_UPDATED(cell) && GET_CELL_TYPE(cell) == type)
-    {
-        for (int i = 0; i < 4; i++)
-        {
-            int target_x = x + DIR_X[i];
-            int target_y = y + DIR_Y[i];
-
-            if (isInBounds(target_x, target_y))
-            {
-                uint8_t neighbor = grid[target_y][target_x];
-                uint8_t neighbor_type = GET_CELL_TYPE(neighbor);
-
-                if (neighbor_type != CELL_EMPTY)
-                {
-                    uint8_t neighbor_rot = GET_CELL_ROT(neighbor);
-                    uint8_t new_rot = (neighbor_rot + rot_dir) & 3;
-
-                    grid[target_y][target_x] = (neighbor & 0xCF) | (new_rot << 4);
-                }
-            }
-        }
-
-        SET_UPDATED(grid[y][x]);
-    }
-}
-
-static void doMover(int x, int y, uint8_t rot)
-{
-    uint8_t cell = grid[y][x];
-
-    if (!GET_CELL_UPDATED(cell) && GET_CELL_TYPE(cell) == CELL_MOVER && GET_CELL_ROT(cell) == rot)
-    {
-        if (pushCellRecursive(x, y, rot))
-        {
-            SET_UPDATED(grid[y + DIR_Y[rot]][x + DIR_X[rot]]);
-        }
-    }
-}
-
-// i really wanted to make this work but it's too slow at runtime so whatever
-/* static void sweepGrid(void (*func)(int, int, uint8_t))
-{
-    typedef struct
-    {
-        int start_x, end_x, step_x;
-        int start_y, end_y, step_y;
-        bool is_y_outer_loop;
-        uint8_t rot;
-    } SweepConfig_t;
-
-    static const SweepConfig_t sweep_config[4] =
-        {
-            {GRID_WIDTH - 1, -1, -1, GRID_HEIGHT - 1, -1, -1, 0, ROT_RIGHT},
-            {0, GRID_WIDTH, 1, 0, GRID_HEIGHT, 1, 0, ROT_LEFT},
-            {0, GRID_WIDTH, 1, 0, GRID_HEIGHT, 1, 1, ROT_UP},
-            {GRID_WIDTH - 1, -1, -1, GRID_HEIGHT - 1, -1, -1, 1, ROT_DOWN}};
-
-    for (int p = 0; p < 4; ++p)
-    {
-        const SweepConfig_t *config = &sweep_config[p];
-
-        if (config->is_y_outer_loop)
-        {
-            for (int y = config->start_y; y != config->end_y; y += config->step_y)
-                for (int x = config->start_x; x != config->end_x; x += config->step_x)
-                    func(x, y, config->rot);
-        }
-        else
-        {
-            for (int x = config->start_x; x != config->end_x; x += config->step_x)
-                for (int y = config->start_y; y != config->end_y; y += config->step_y)
-                    func(x, y, config->rot);
-        }
-    }
-} */
-
-static void tick(void)
-{
-    // GENERATORS
-    // right
-    for (int x = GRID_WIDTH - 1; x >= 0; x--)
-        for (int y = GRID_HEIGHT - 1; y >= 0; y--)
-            doGenerator(x, y, ROT_RIGHT);
-    // left
-    for (int x = 0; x < GRID_WIDTH; x++)
-        for (int y = 0; y < GRID_HEIGHT; y++)
-            doGenerator(x, y, ROT_LEFT);
-    // up
-    for (int y = 0; y < GRID_HEIGHT; y++)
-        for (int x = 0; x < GRID_WIDTH; x++)
-            doGenerator(x, y, ROT_UP);
-    // down
-    for (int y = GRID_HEIGHT - 1; y >= 0; y--)
-        for (int x = GRID_WIDTH - 1; x >= 0; x--)
-            doGenerator(x, y, ROT_DOWN);
-
-    // ROTATORS
-    // cw
-    for (int y = 0; y < GRID_HEIGHT; y++)
-        for (int x = 0; x < GRID_WIDTH; x++)
-            doRotator(x, y, CELL_CW_ROTATOR, 1);
-    // ccw
-    for (int y = 0; y < GRID_HEIGHT; y++)
-        for (int x = 0; x < GRID_WIDTH; x++)
-            doRotator(x, y, CELL_CCW_ROTATOR, -1);
-
-    // MOVERS
-    // right
-    for (int x = GRID_WIDTH - 1; x >= 0; x--)
-        for (int y = GRID_HEIGHT - 1; y >= 0; y--)
-            doMover(x, y, ROT_RIGHT);
-    // left
-    for (int x = 0; x < GRID_WIDTH; x++)
-        for (int y = 0; y < GRID_HEIGHT; y++)
-            doMover(x, y, ROT_LEFT);
-    // up
-    for (int y = 0; y < GRID_HEIGHT; y++)
-        for (int x = 0; x < GRID_WIDTH; x++)
-            doMover(x, y, ROT_UP);
-    // down
-    for (int y = GRID_HEIGHT - 1; y >= 0; y--)
-        for (int x = GRID_WIDTH - 1; x >= 0; x--)
-            doMover(x, y, ROT_DOWN);
-
-    // CLEANUP OF UPDATED FLAG
-    for (int y = 0; y < GRID_HEIGHT; y++)
-        for (int x = 0; x < GRID_WIDTH; x++)
-            CLEAR_UPDATED(grid[y][x]);
 }
 
 static void init(void)
@@ -276,7 +51,7 @@ static void step(void)
     {
         if (current_time - last_tick_time >= TICK_DELAY)
         {
-            tick();
+            stepSimulation(grid);
             last_tick_time = current_time;
         }
 
@@ -309,9 +84,9 @@ static void step(void)
         if (isKeyPressed(kb_KeyZoom))
         {
             if (is_reset)
-                memcpy(grid_initial, grid, sizeof(game_grid_t));
+                saveGridToInitial();
             is_reset = false;
-            tick();
+            stepSimulation(grid);
         }
         if (isKeyPressed(kb_KeyClear) && is_reset)
             states_EnterState(&STATE_MENU);
@@ -377,7 +152,7 @@ static void step(void)
     {
         if (is_reset)
         {
-            memcpy(grid_initial, grid, sizeof(game_grid_t));
+            saveGridToInitial();
             playing_bar_x = 0;
         }
         is_reset = false;
@@ -386,7 +161,7 @@ static void step(void)
     }
     if (isKeyPressed(kb_KeyWindow) && !is_reset)
     {
-        memcpy(grid, grid_initial, sizeof(game_grid_t));
+        resetGridToInitial();
         is_playing = false;
         is_reset = true;
     }
