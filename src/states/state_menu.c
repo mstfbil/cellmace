@@ -1,6 +1,10 @@
-#include "utils/input.h"
 #include "state_menu.h"
 #include "state_editor.h"
+#include "utils/input.h"
+#include "engine/grid.h"
+#include "engine/save.h"
+#include "gfx/sprites.h"
+#include <graphx.h>
 
 #define PREVIEW_X 200
 #define PREVIEW_Y 82
@@ -34,8 +38,8 @@ static void step(void)
             at_delete_confirmation = false;
         if (isKeyPressed(kb_KeyDel))
         {
-            ti_Delete(save_var_name);
-            load_save_from_appvar();
+            deleteSave();
+            loadSaveFromAppvar(grid);
             at_delete_confirmation = false;
         }
     }
@@ -55,7 +59,7 @@ static void step(void)
             save_slot++;
             if (save_slot > 9)
                 save_slot = 1;
-            load_save_from_appvar();
+            loadSaveFromAppvar(grid);
             at_delete_confirmation = false;
         }
         if (isKeyPressed(kb_KeyLeft))
@@ -63,7 +67,7 @@ static void step(void)
             save_slot--;
             if (save_slot < 1)
                 save_slot = 9;
-            load_save_from_appvar();
+            loadSaveFromAppvar(grid);
             at_delete_confirmation = false;
         }
     }

@@ -1,7 +1,7 @@
 #ifndef STATES_H
 #define STATES_H
 
-#include "common.h"
+#include <stdbool.h>
 
 typedef struct
 {

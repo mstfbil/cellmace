@@ -1,37 +1,19 @@
-#include "utils/input.h"
 #include "state_editor.h"
 #include "state_menu.h"
+#include "engine/grid.h"
+#include "engine/save.h"
+#include "utils/input.h"
+#include "gfx/sprites.h"
+#include <graphx.h>
+#include <sys/timers.h>
+#include <string.h>
 
 #define CURSOR_DELAY (32768 / 10)
 #define TICK_DELAY (32768 / 5)
 
-enum CellType
-{
-    CELL_EMPTY,
-    CELL_WALL,
-    CELL_PUSH,
-    CELL_SLIDE,
-    CELL_MOVER,
-    CELL_CW_ROTATOR,
-    CELL_CCW_ROTATOR,
-    CELL_GENERATOR,
-    CELL_ENEMY,
-    CELL_TRASH
-};
-
-enum CellRot
-{
-    ROT_RIGHT,
-    ROT_DOWN,
-    ROT_LEFT,
-    ROT_UP,
-    ROT_COUNT
-};
-
 static const int8_t DIR_X[] = {1, 0, -1, 0};
 static const int8_t DIR_Y[] = {0, 1, 0, -1};
 
-uint8_t grid[GRID_HEIGHT][GRID_WIDTH];
 static uint8_t grid_initial[GRID_HEIGHT][GRID_WIDTH];
 char save_var_name[9];
 
@@ -44,40 +26,6 @@ static int playing_bar_x = 0;
 static bool playing_bar_to_right = true;
 #define PLAYING_BAR_WIDTH (GFX_LCD_WIDTH / 10)
 #define PLAYING_BAR_SPEED 4
-
-void load_save_from_appvar(void)
-{
-    sprintf(save_var_name, SAVE_VAR_NAME_FORMAT, save_slot);
-    uint8_t slot = ti_Open(save_var_name, "r");
-    if (slot == 0)
-        memset(grid, CELL_EMPTY, sizeof(grid));
-
-    ti_Read(&grid, sizeof(grid), 1, slot);
-    ti_Close(slot);
-}
-
-static void save_grid_to_appvar(void)
-{
-    bool is_empty = true;
-    for (int y = 0; y < GRID_HEIGHT; y++)
-        for (int x = 0; x < GRID_WIDTH; x++)
-            if (grid[y][x] != CELL_EMPTY)
-            {
-                is_empty = false;
-                break;
-            }
-    if (is_empty)
-        ti_Delete(save_var_name);
-    else
-    {
-        uint8_t slot = ti_Open(save_var_name, "w");
-        if (slot == 0)
-            return;
-
-        ti_Write(&grid, sizeof(grid), 1, slot);
-        ti_Close(slot);
-    }
-}
 
 static void drawCellNoClip(uint8_t cell, int x, int y)
 {
@@ -361,7 +309,7 @@ static void step(void)
         if (isKeyPressed(kb_KeyZoom))
         {
             if (is_reset)
-                memcpy(grid_initial, grid, sizeof(grid));
+                memcpy(grid_initial, grid, sizeof(game_grid_t));
             is_reset = false;
             tick();
         }
@@ -429,7 +377,7 @@ static void step(void)
     {
         if (is_reset)
         {
-            memcpy(grid_initial, grid, sizeof(grid));
+            memcpy(grid_initial, grid, sizeof(game_grid_t));
             playing_bar_x = 0;
         }
         is_reset = false;
@@ -438,7 +386,7 @@ static void step(void)
     }
     if (isKeyPressed(kb_KeyWindow) && !is_reset)
     {
-        memcpy(grid, grid_initial, sizeof(grid));
+        memcpy(grid, grid_initial, sizeof(game_grid_t));
         is_playing = false;
         is_reset = true;
     }
@@ -485,7 +433,7 @@ static void draw(void)
 
 static void quit(void)
 {
-    save_grid_to_appvar();
+    saveGridToAppvar(grid);
     timer_Disable(1);
 }
 

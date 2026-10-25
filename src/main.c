@@ -1,11 +1,9 @@
-#include "common.h"
+#include "engine/grid.h"
+#include "engine/save.h"
 #include "utils/states.h"
 #include "utils/input.h"
 #include "states/state_menu.h"
-#include "states/state_editor.h" // temporary!
 #include "gfx/sprites.h"
-
-int save_slot; // temporary!
 
 int main(void)
 {
@@ -15,7 +13,7 @@ int main(void)
     initCellSprites();
 
     save_slot = 1;
-    load_save_from_appvar();
+    loadSaveFromAppvar(grid);
 
     states_Init(&STATE_MENU);
 

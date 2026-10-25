@@ -1,12 +1,8 @@
 #ifndef STATE_EDITOR_H
 #define STATE_EDITOR_H
 
-#include "common.h"
 #include "utils/states.h"
 extern const game_state_t STATE_EDITOR;
-
-#define GRID_WIDTH 20
-#define GRID_HEIGHT 15
 
 #define GET_CELL_TYPE(cell) ((cell) & 0xF)
 #define GET_CELL_UPDATED(cell) ((cell) & 0x80)
@@ -14,9 +10,5 @@ extern const game_state_t STATE_EDITOR;
 #define SET_UPDATED(cell) ((cell) |= 0x80)
 #define CLEAR_UPDATED(cell) ((cell) &= 0x7F)
 #define MAKE_CELL(type, rot) (type | (rot << 4))
-
-void load_save_from_appvar(void);
-extern uint8_t grid[GRID_HEIGHT][GRID_WIDTH];
-extern char save_var_name[9];
 
 #endif

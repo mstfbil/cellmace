@@ -1,4 +1,5 @@
 #include "states.h"
+#include <cdefs.h>
 
 static const game_state_t *current_state = NULL;
 static const game_state_t *next_state = NULL;
