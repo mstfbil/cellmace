@@ -107,7 +107,7 @@ static void draw(void)
     for (int y = 0; y < GRID_HEIGHT; y++)
         for (int x = 0; x < GRID_WIDTH; x++)
         {
-            uint8_t type = GET_CELL_TYPE(grid[y][x]);
+            uint8_t type = grid[y][x] & CELL_TYPE_MASK;
             gfx_SetColor(CELL_COLORS[type]);
             gfx_FillRectangle_NoClip(PREVIEW_X + PREVIEW_CELL_SIZE * x, PREVIEW_Y + PREVIEW_CELL_SIZE * y, PREVIEW_CELL_SIZE, PREVIEW_CELL_SIZE);
         }

@@ -22,11 +22,6 @@ static bool playing_bar_to_right = true;
 #define PLAYING_BAR_WIDTH (GFX_LCD_WIDTH / 10)
 #define PLAYING_BAR_SPEED 4
 
-static void drawCellNoClip(uint8_t cell, int x, int y)
-{
-    gfx_Sprite_NoClip(cells_sprites[GET_CELL_TYPE(cell)][GET_CELL_ROT(cell)], x, y);
-}
-
 static void init(void)
 {
     cursor_x = 0;
@@ -78,7 +73,7 @@ static void step(void)
     else
     {
         if (isKeyHeld(kb_Key2nd))
-            grid[cursor_y][cursor_x] = MAKE_CELL(picked_cell_type, picked_cell_rot);
+            grid[cursor_y][cursor_x] = (picked_cell_type | (picked_cell_rot) << 4);
         if (isKeyHeld(kb_KeyAlpha))
             grid[cursor_y][cursor_x] = CELL_EMPTY;
         if (isKeyPressed(kb_KeyZoom))
@@ -174,7 +169,8 @@ static void draw(void)
     {
         for (int x = 0; x < GRID_WIDTH; x++)
         {
-            drawCellNoClip(grid[y][x], x * 16, y * 16);
+            uint8_t cell = grid[y][x];
+            gfx_Sprite_NoClip(cells_sprites[cell & CELL_TYPE_MASK][(cell & CELL_ROT_MASK) >> 4], x * 16, y * 16);
         }
     }
 
