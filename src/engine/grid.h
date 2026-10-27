@@ -22,7 +22,8 @@ enum CellType
     CELL_CCW_ROTATOR,
     CELL_GENERATOR,
     CELL_ENEMY,
-    CELL_TRASH
+    CELL_TRASH,
+    CELL_COUNT
 };
 
 enum CellRot

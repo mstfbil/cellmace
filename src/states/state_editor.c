@@ -9,28 +9,38 @@
 #include <sys/timers.h>
 #include <string.h>
 
-#define CURSOR_DELAY (32768 / 10)
+#define CURSOR_DELAY (32768 / 8)
 #define TICK_DELAY (32768 / 5)
+
+#define PLAYING_BAR_WIDTH (GFX_LCD_WIDTH / 10)
+#define PLAYING_BAR_SPEED 4
 
 static bool is_playing, is_reset;
 static int cursor_x, cursor_y;
 static uint8_t picked_cell_type, picked_cell_rot;
 static uint32_t last_cursor_time, last_tick_time;
 
-static int playing_bar_x = 0;
-static bool playing_bar_to_right = true;
-#define PLAYING_BAR_WIDTH (GFX_LCD_WIDTH / 10)
-#define PLAYING_BAR_SPEED 4
+static int playing_bar_x;
+static bool playing_bar_to_right;
+
+static int wrap_value(int value, int min, int max, int step)
+{
+    int range = max - min + 1;
+    return ((value - min + step) % range + range) % range + min;
+}
 
 static void init(void)
 {
     cursor_x = 0;
     cursor_y = 0;
-    picked_cell_type = 1;
-    picked_cell_rot = 0;
+    picked_cell_type = CELL_WALL;
+    picked_cell_rot = ROT_RIGHT;
 
     is_playing = false;
     is_reset = true;
+
+    playing_bar_x = 0;
+    playing_bar_to_right = true;
 
     timer_Enable(1, TIMER_32K, TIMER_NOINT, TIMER_UP);
     uint32_t current_time = timer_Get(1);
@@ -72,6 +82,25 @@ static void step(void)
     }
     else
     {
+        int dx = isKeyHeld(kb_KeyRight) - isKeyHeld(kb_KeyLeft);
+        int dy = isKeyHeld(kb_KeyDown) - isKeyHeld(kb_KeyUp);
+        if (current_time - last_cursor_time >= CURSOR_DELAY)
+        {
+            if (isKeyHeld(kb_KeyMode)) // change and rotate picked cell
+            {
+                picked_cell_type = wrap_value(picked_cell_type, CELL_WALL, CELL_COUNT - 1, dx);
+                picked_cell_rot = wrap_value(picked_cell_rot, ROT_RIGHT, ROT_COUNT - 1, dy);
+            }
+            else // move the cursor
+            {
+                cursor_x = wrap_value(cursor_x, 0, GRID_WIDTH, dx);
+                cursor_y = wrap_value(cursor_y, 0, GRID_HEIGHT, dy);
+            }
+
+            if (dx || dy)
+                last_cursor_time = current_time;
+        }
+
         if (isKeyHeld(kb_Key2nd))
             grid[cursor_y][cursor_x] = (picked_cell_type | (picked_cell_rot) << 4);
         if (isKeyHeld(kb_KeyAlpha))
@@ -85,40 +114,6 @@ static void step(void)
         }
         if (isKeyPressed(kb_KeyClear) && is_reset)
             states_EnterState(&STATE_MENU);
-        if (current_time - last_cursor_time >= CURSOR_DELAY)
-        {
-            bool moved = false;
-            if (isKeyHeld(kb_KeyLeft))
-            {
-                cursor_x--;
-                if (cursor_x < 0)
-                    cursor_x = GRID_WIDTH - 1;
-                moved = true;
-            }
-            if (isKeyHeld(kb_KeyRight))
-            {
-                cursor_x++;
-                if (cursor_x > GRID_WIDTH - 1)
-                    cursor_x = 0;
-                moved = true;
-            }
-            if (isKeyHeld(kb_KeyUp))
-            {
-                cursor_y--;
-                if (cursor_y < 0)
-                    cursor_y = GRID_HEIGHT - 1;
-                moved = true;
-            }
-            if (isKeyHeld(kb_KeyDown))
-            {
-                cursor_y++;
-                if (cursor_y > GRID_HEIGHT - 1)
-                    cursor_y = 0;
-                moved = true;
-            }
-            if (moved)
-                last_cursor_time = current_time;
-        }
 
         if (isKeyPressed(kb_Key1))
             picked_cell_type = CELL_PUSH;
