@@ -5,58 +5,71 @@
 static const int8_t DIR_X[] = {1, 0, -1, 0};
 static const int8_t DIR_Y[] = {0, 1, 0, -1};
 
-static bool push_cell_recursive(int x, int y, uint8_t dir)
+static bool push_cell_iterative(int start_x, int start_y, uint8_t dir)
 {
-    if (!isInGridBounds(x, y))
-        return false;
+    int dx = DIR_X[dir];
+    int dy = DIR_Y[dir];
+    bool is_horizontal = (dir == ROT_LEFT || dir == ROT_RIGHT);
 
-    uint8_t cell = grid[y][x];
-    uint8_t type = cell & CELL_TYPE_MASK;
+    int cur_x = start_x;
+    int cur_y = start_y;
 
-    if (type == CELL_EMPTY)
-        return true;
-    else if (type == CELL_WALL)
-        return false;
-    else if (type == CELL_SLIDE)
+    while (true)
     {
-        uint8_t rot = (cell & CELL_ROT_MASK) >> 4;
-        if ((rot == ROT_LEFT || rot == ROT_RIGHT) != (dir == ROT_LEFT || dir == ROT_RIGHT))
+        if (!isInGridBounds(cur_x, cur_y))
             return false;
+
+        uint8_t cell = grid[cur_y][cur_x];
+        uint8_t type = cell & CELL_TYPE_MASK;
+
+        if (type == CELL_EMPTY)
+            break;
+        else if (type == CELL_WALL)
+            return false;
+        else if (type == CELL_SLIDE)
+        {
+            uint8_t rot = (cell & CELL_ROT_MASK) >> 4;
+            bool slide_horizontal = (rot == ROT_LEFT || rot == ROT_RIGHT);
+            if (slide_horizontal != is_horizontal)
+                return false;
+        }
+
+        int next_x = cur_x + dx;
+        int next_y = cur_y + dy;
+
+        if (!isInGridBounds(next_x, next_y))
+            return false;
+
+        uint8_t target_type = grid[next_y][next_x] & CELL_TYPE_MASK;
+
+        if (target_type == CELL_ENEMY)
+        {
+            grid[next_y][next_x] = CELL_EMPTY;
+            grid[cur_y][cur_x] = CELL_EMPTY;
+            break;
+        }
+        else if (target_type == CELL_TRASH)
+        {
+            grid[cur_y][cur_x] = CELL_EMPTY;
+            break;
+        }
+
+        cur_x = next_x;
+        cur_y = next_y;
     }
-    else if (type == CELL_ENEMY)
+
+    while (cur_x != start_x || cur_y != start_y)
     {
-        grid[y][x] = CELL_EMPTY;
-        return false;
+        int prev_x = cur_x - dx;
+        int prev_y = cur_y - dy;
+
+        grid[cur_y][cur_x] = grid[prev_y][prev_x];
+        cur_x = prev_x;
+        cur_y = prev_y;
     }
 
-    int next_x = x + DIR_X[dir];
-    int next_y = y + DIR_Y[dir];
-    if (!isInGridBounds(next_x, next_y))
-        return false;
-
-    uint8_t target_cell = grid[next_y][next_x];
-    uint8_t target_type = target_cell & CELL_TYPE_MASK;
-
-    if (target_type == CELL_TRASH)
-    {
-        grid[y][x] = CELL_EMPTY;
-        return true;
-    }
-    if (target_type == CELL_ENEMY)
-    {
-        grid[next_y][next_x] = CELL_EMPTY;
-        grid[y][x] = CELL_EMPTY;
-        return true;
-    }
-
-    if (push_cell_recursive(next_x, next_y, dir))
-    {
-        grid[next_y][next_x] = cell;
-        grid[y][x] = CELL_EMPTY;
-        return true;
-    }
-
-    return false;
+    grid[start_y][start_x] = CELL_EMPTY;
+    return true;
 }
 
 static void do_generator(int x, int y, uint8_t rot)
@@ -76,7 +89,7 @@ static void do_generator(int x, int y, uint8_t rot)
                 int front_x = x + DIR_X[rot];
                 int front_y = y + DIR_Y[rot];
 
-                if (push_cell_recursive(front_x, front_y, rot))
+                if (push_cell_iterative(front_x, front_y, rot))
                 {
                     grid[front_y][front_x] = source & 0x7F;
                 }
@@ -122,7 +135,7 @@ static void do_mover(int x, int y, uint8_t rot)
 
     if (!(cell & CELL_UPDATED_MASK) && (cell & CELL_TYPE_MASK) == CELL_MOVER && ((cell & CELL_ROT_MASK) >> 4) == rot)
     {
-        if (push_cell_recursive(x, y, rot))
+        if (push_cell_iterative(x, y, rot))
         {
             grid[y + DIR_Y[rot]][x + DIR_X[rot]] |= CELL_UPDATED_MASK;
         }
@@ -133,7 +146,7 @@ void stepSimulation(game_grid_t grid)
 {
     // GENERATORS
     // right
-     for (int x = GRID_WIDTH - 1; x >= 0; x--)
+    for (int x = GRID_WIDTH - 1; x >= 0; x--)
         for (int y = GRID_HEIGHT - 1; y >= 0; y--)
             do_generator(x, y, ROT_RIGHT);
     // left
@@ -148,7 +161,7 @@ void stepSimulation(game_grid_t grid)
     for (int y = GRID_HEIGHT - 1; y >= 0; y--)
         for (int x = GRID_WIDTH - 1; x >= 0; x--)
             do_generator(x, y, ROT_DOWN);
-    
+
     // ROTATORS
     // cw
     for (int y = 0; y < GRID_HEIGHT; y++)
