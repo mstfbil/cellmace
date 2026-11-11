@@ -7,7 +7,6 @@
 #include "gfx/sprites.h"
 #include <graphx.h>
 #include <sys/timers.h>
-#include <string.h>
 
 #define CURSOR_DELAY (32768 / 8)
 #define TICK_DELAY (32768 / 5)
@@ -16,17 +15,21 @@
 #define PLAYING_BAR_SPEED 4
 
 static bool is_playing, is_reset;
-static int cursor_x, cursor_y;
+static unsigned int cursor_x, cursor_y;
 static uint8_t picked_cell_type, picked_cell_rot;
 static uint32_t last_cursor_time, last_tick_time;
 
 static int playing_bar_x;
 static bool playing_bar_to_right;
 
-static int wrap_value(int value, int min, int max, int step)
+static inline int wrap_value(int value, int min, int max, int step)
 {
-    int range = max - min + 1;
-    return ((value - min + step) % range + range) % range + min;
+    value += step;
+    if (value < min)
+        return max;
+    if (value > max)
+        return min;
+    return value;
 }
 
 static void init(void)
@@ -46,6 +49,29 @@ static void init(void)
     uint32_t current_time = timer_Get(1);
     last_cursor_time = current_time - CURSOR_DELAY;
     last_tick_time = current_time;
+}
+
+static void toggle_sim_play(void)
+{
+    uint32_t current_time = timer_Get(1);
+    if (is_reset)
+    {
+        saveGridToInitial();
+        playing_bar_x = 0;
+    }
+    is_reset = false;
+    is_playing = !is_playing;
+    last_tick_time = current_time;
+}
+
+static void reset_sim_play(void)
+{
+    if (!is_reset)
+    {
+        resetGridToInitial();
+        is_playing = false;
+        is_reset = true;
+    }
 }
 
 static void step(void)
@@ -93,8 +119,8 @@ static void step(void)
             }
             else // move the cursor
             {
-                cursor_x = wrap_value(cursor_x, 0, GRID_WIDTH, dx);
-                cursor_y = wrap_value(cursor_y, 0, GRID_HEIGHT, dy);
+                cursor_x = wrap_value(cursor_x, 0, GRID_WIDTH - 1, dx);
+                cursor_y = wrap_value(cursor_y, 0, GRID_HEIGHT - 1, dy);
             }
 
             if (dx || dy)
@@ -112,8 +138,6 @@ static void step(void)
             is_reset = false;
             stepSimulation(grid);
         }
-        if (isKeyPressed(kb_KeyClear) && is_reset)
-            states_EnterState(&STATE_MENU);
 
         if (isKeyPressed(kb_Key1))
             picked_cell_type = CELL_PUSH;
@@ -134,26 +158,19 @@ static void step(void)
         if (isKeyPressed(kb_Key9))
             picked_cell_type = CELL_WALL;
         if (isKeyPressed(kb_KeyAdd))
-            picked_cell_rot = (picked_cell_rot + 1) % ROT_COUNT;
+            picked_cell_rot = wrap_value(picked_cell_rot, ROT_RIGHT, ROT_COUNT - 1, 1);
         if (isKeyPressed(kb_KeySub))
-            picked_cell_rot = (picked_cell_rot + ROT_COUNT - 1) % ROT_COUNT;
+            picked_cell_rot = wrap_value(picked_cell_rot, ROT_RIGHT, ROT_COUNT - 1, -1);
     }
     if (isKeyPressed(kb_KeyYequ))
+        toggle_sim_play();
+    if (isKeyPressed(kb_KeyWindow))
+        reset_sim_play();
+    if (isKeyPressed(kb_KeyClear))
     {
         if (is_reset)
-        {
-            saveGridToInitial();
-            playing_bar_x = 0;
-        }
-        is_reset = false;
-        is_playing = !is_playing;
-        last_tick_time = current_time;
-    }
-    if (isKeyPressed(kb_KeyWindow) && !is_reset)
-    {
-        resetGridToInitial();
-        is_playing = false;
-        is_reset = true;
+            states_EnterState(&STATE_MENU);
+        reset_sim_play();
     }
 }
 
