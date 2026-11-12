@@ -20,7 +20,7 @@ static uint8_t picked_cell_type, picked_cell_rot;
 static uint32_t last_cursor_time, last_tick_time;
 
 static int playing_bar_x;
-static bool playing_bar_to_right;
+static int playing_bar_dx;
 
 static inline int wrap_value(int value, int min, int max, int step)
 {
@@ -43,7 +43,7 @@ static void init(void)
     is_reset = true;
 
     playing_bar_x = 0;
-    playing_bar_to_right = true;
+    playing_bar_dx = PLAYING_BAR_SPEED;
 
     timer_Enable(1, TIMER_32K, TIMER_NOINT, TIMER_UP);
     uint32_t current_time = timer_Get(1);
@@ -51,15 +51,17 @@ static void init(void)
     last_tick_time = current_time;
 }
 
-static void toggle_sim_play(void)
+static inline void begin_sim_play(void)
 {
-    uint32_t current_time = timer_Get(1);
-    if (is_reset)
-    {
-        saveGridToInitial();
-        playing_bar_x = 0;
-    }
+    saveGridToInitial();
+    playing_bar_x = 0;
     is_reset = false;
+}
+
+static void toggle_sim_play(uint32_t current_time)
+{
+    if (is_reset)
+        begin_sim_play();
     is_playing = !is_playing;
     last_tick_time = current_time;
 }
@@ -87,24 +89,9 @@ static void step(void)
         }
 
         // update indicator
-        if (playing_bar_to_right)
-        {
-            playing_bar_x += PLAYING_BAR_SPEED;
-            if (playing_bar_x + PLAYING_BAR_WIDTH >= GFX_LCD_WIDTH)
-            {
-                playing_bar_x = GFX_LCD_WIDTH - PLAYING_BAR_WIDTH;
-                playing_bar_to_right = false;
-            }
-        }
-        else
-        {
-            playing_bar_x -= PLAYING_BAR_SPEED;
-            if (playing_bar_x <= 0)
-            {
-                playing_bar_x = 0;
-                playing_bar_to_right = true;
-            }
-        }
+        playing_bar_x += playing_bar_dx;
+        if (playing_bar_x <= 0 || playing_bar_x + PLAYING_BAR_WIDTH >= GFX_LCD_WIDTH)
+            playing_bar_dx = -playing_bar_dx;
     }
     else
     {
@@ -134,8 +121,7 @@ static void step(void)
         if (isKeyPressed(kb_KeyZoom))
         {
             if (is_reset)
-                saveGridToInitial();
-            is_reset = false;
+                begin_sim_play();
             stepSimulation(grid);
         }
 
@@ -163,7 +149,7 @@ static void step(void)
             picked_cell_rot = wrap_value(picked_cell_rot, ROT_RIGHT, ROT_COUNT - 1, -1);
     }
     if (isKeyPressed(kb_KeyYequ))
-        toggle_sim_play();
+        toggle_sim_play(current_time);
     if (isKeyPressed(kb_KeyWindow))
         reset_sim_play();
     if (isKeyPressed(kb_KeyClear))
@@ -177,14 +163,13 @@ static void step(void)
 static void draw(void)
 {
     // draw grid
-    for (int y = 0; y < GRID_HEIGHT; y++)
-    {
-        for (int x = 0; x < GRID_WIDTH; x++)
+    uint8_t *cell_ptr = &grid[0][0];
+    for (uint8_t y = 0; y < GRID_HEIGHT * 16; y += 16)
+        for (unsigned int x = 0; x < GRID_WIDTH * 16; x += 16)
         {
-            uint8_t cell = grid[y][x];
-            gfx_Sprite_NoClip(cells_sprites[cell & CELL_TYPE_MASK][(cell & CELL_ROT_MASK) >> 4], x * 16, y * 16);
+            uint8_t cell = *cell_ptr++;
+            gfx_Sprite_NoClip(cells_sprites[cell & CELL_TYPE_MASK][cell >> 4], x, y);
         }
-    }
 
     // draw cursor
     if (!is_playing)
